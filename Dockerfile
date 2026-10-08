@@ -190,7 +190,12 @@ ENV NODE_ENV=production \
   PAPERCLIP_DEPLOYMENT_MODE=authenticated \
   PAPERCLIP_DEPLOYMENT_EXPOSURE=private \
   OPENCODE_ALLOW_ALL_MODELS=true \
-  GEMINI_SANDBOX=false
+  GEMINI_SANDBOX=false \
+  PATH=/paperclip/.asdf/shims:/paperclip/.asdf/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Agent toolchain (e.g. the AoC demo's Java/sbt): asdf installs live on the
+# /paperclip volume and resolve per-repo .tool-versions at runtime, so the
+# image only needs the shims on PATH. Keeps agent shells working across
+# image rebuilds without baking volume state into the image.
 
 EXPOSE 3100
 
