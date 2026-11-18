@@ -247,12 +247,13 @@ deletes the ciphertext on expiry and excludes it from long-term backups. Refresh
 and supported revoke operations handle plaintext only in memory for one bounded
 request.
 
-Removing one managed Google profile revokes only the local Paperclip grant.
-Paperclip does not call Google's token revocation endpoint for that action.
-Google treats revocation as client-wide for the user, so a provider-side revoke
-could also invalidate the user's other managed Gmail, Drive, and Calendar
-profiles. A future provider-level disconnect must present that all-profiles
-effect explicitly.
+Removing a managed Google profile asks Paperclip Cloud to revoke the grant.
+Google treats revocation as client-wide for the user, so the broker revokes at
+Google only when no other live binding it knows of could share the grant, and
+otherwise reports that other connections remain. Paperclip commits the local
+removal first and calls the broker only after that; the answer never changes
+the local result. See "Removing a managed Google connection" in
+[GOOGLE-WORKSPACE.md](GOOGLE-WORKSPACE.md).
 
 ### Configure each originating Paperclip instance
 
@@ -316,6 +317,20 @@ Gmail uses the same credential ownership choice as the rest of the Apps setup:
 - Trash, spam, destructive label changes, newly discovered tools, nested
   execution, and any future send tool remain blocked until separately reviewed.
 
+## Broker rejection diagnostics
+
+A rejected connector request includes its operation, HTTP status, and an
+allowlisted broker reason in the server error. For example,
+`RETURN_ORIGIN_NOT_ENROLLED` means the callback origin is not enrolled for that
+instance. Compare the current page/configured origin with the instance's enrolled
+origins; do not bypass origin checks or copy credentials to a different instance.
+
+Unknown codes, malformed bodies, oversized responses, and stalled diagnostic
+reads produce `UNKNOWN_BROKER_ERROR`. This is not proof of any specific rejection
+cause. Diagnostics read at most 4 KiB within 500 ms and retain no raw response
+messages, URLs, tokens, authorization state, or instance/customer identifiers.
+The existing error code, status, authorization, and retry behavior are unchanged.
+
 ## Verification checklist
 
 ### Development
@@ -372,6 +387,7 @@ seven-day testing-token expiry.
 | The managed method is unavailable | Confirm the exact profile is in `CLOUD_HARNESS_CONNECTOR_GOOGLE_ENABLED_PROFILES` and its client id and secret reference are configured. |
 | Login starts asking for Gmail | Stop the rollout. The login and Gmail clients or route namespaces have been mixed. |
 | Connector is unavailable | Keep the grant in `needs_reauthorization` or an actionable unavailable state. Never use a login token or another environment's client. |
+| Refresh reports `reason=PROVIDER_REAUTHORIZATION_REQUIRED` | The provider revoked, expired, or already rotated the grant, or the grant no longer matches the profile. Paperclip marks it `needs_reauthorization`; the user reconnects. `reason=PROVIDER_OPERATION_FAILED` is a provider or Cloud outage; retry later. |
 
 ## References
 

@@ -13,6 +13,7 @@ import {
   type AiConnectionRequirement,
   type AiConnectionSummary,
 } from "./model";
+import { ANALYTICS_MASK_CLASS } from "@/lib/analytics/privacy";
 
 export interface AiConnectionPickerProps {
   requirement: AiConnectionRequirement;
@@ -26,6 +27,7 @@ export interface AiConnectionPickerProps {
   readOnly?: boolean;
   onChange: (binding: AiConnectionBinding) => void;
   onConnect: () => void;
+  onReconnect?: () => void;
   onRetry?: () => void;
 }
 
@@ -40,6 +42,7 @@ export function AiConnectionPicker({
   readOnly,
   onChange,
   onConnect,
+  onReconnect,
   onRetry,
 }: AiConnectionPickerProps) {
   const compatible = connections.filter((connection) =>
@@ -108,17 +111,17 @@ export function AiConnectionPicker({
             selectedId={value?.mode === "responsible_user" ? "responsible_user" : value?.connectionId}
             choices={[
               { id: "responsible_user", name: "Responsible user’s connection", description: <>
-                <span className="block">For you: {personalDefault?.name ?? "Not connected"}</span>
+                <span className="block">For you: <span className={ANALYTICS_MASK_CLASS}>{personalDefault?.name ?? "Not connected"}</span></span>
                 <span className="block">Other users’ tasks use their own {AI_PROVIDERS[requirement.provider].name} connection.</span>
               </> },
               ...compatible.filter((connection) => connection.ownership === "shared").map((connection) => ({
                 id: connection.id, name: connection.name,
                 disabled: Boolean(aiConnectionProblem(connection)),
-                description: <>Company shared · {aiMethodLabel(connection.provider, connection.method)}{connection.accountLabel ? ` · ${connection.accountLabel}` : ""}{aiConnectionProblem(connection) ? ` · ${aiConnectionProblem(connection)}` : ""}</>,
+                description: <>Company shared · {aiMethodLabel(connection.provider, connection.method)}{connection.accountLabel ? <span className={ANALYTICS_MASK_CLASS}>{` · ${connection.accountLabel}`}</span> : ""}{aiConnectionProblem(connection) ? ` · ${aiConnectionProblem(connection)}` : ""}</>,
               })),
             ]}
             onSelect={(id) => {
-              if (id === "responsible_user") onChange({provider: requirement.provider, method: personalDefault?.method ?? requirement.method ?? (requirement.provider === "openrouter" ? "api_key" : "subscription"), mode: "responsible_user"});
+              if (id === "responsible_user") onChange({provider: requirement.provider, method: personalDefault?.method ?? requirement.method ?? ((requirement.provider === "openrouter" || requirement.provider === "github") ? "api_key" : "subscription"), mode: "responsible_user"});
               else { const connection = compatible.find((item) => item.id === id)!; select("shared", connection); }
             }}
           />
@@ -128,14 +131,16 @@ export function AiConnectionPicker({
             </p>
           )}
           {!readOnly && (
-            <Button
-              type="button"
-              variant="outline"
-              className="self-end"
-              onClick={onConnect}
-            >
-              Connect another account
-            </Button>
+            <div className="flex justify-end gap-2">
+              {onReconnect && <Button type="button" variant="outline" onClick={onReconnect}>Reconnect account</Button>}
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onConnect}
+              >
+                Connect another account
+              </Button>
+            </div>
           )}
         </>
       )}
